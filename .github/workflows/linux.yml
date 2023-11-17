@@ -27,7 +27,7 @@ jobs:
   test:
     name: Test on Linux
     runs-on: ubuntu-latest
-
+    needs: build
     steps:
     - uses: actions/checkout@v3
     - name: Install dependencies
