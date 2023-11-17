@@ -14,7 +14,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Install dependencies
-      run: apt update -y && apt install meson build-essential libmagick++-dev
+      run: sudo apt update -y && sudo apt install meson build-essential libmagick++-dev -y
     - name: Set up build directory
       run: meson setup builddir
     - name: Build
