@@ -5,11 +5,11 @@ A converter to/from the B16/BMX bitmap format being developed for the Commander 
 This program requires ImageMagick, and Magick++ (which may come with ImageMagick)
 
 Steps:
-1. Clone the repo
-2. cd into the repo directory
-3. Run meson setup builddir
-4. Run meson compile -C builddir
-5. The binary is (Repo directory)/builddir/b16converter(.exe)
+1. Clone the repo. For example: ``git clone https://github.com/catmeow72/b16converter.git b16converter``
+2. cd into the repo directory. For example: ``cd b16converter``
+3. Run ``meson setup builddir``
+4. Run ``meson compile -C builddir``
+5. The binary is ./builddir/b16converter(.exe) where (.exe) is .exe if on Windows, and nothing on other operating systems.
 
 ## Usage
 Run the binary with the -in option specifying the input file and the -out option specifying the desired output file.
