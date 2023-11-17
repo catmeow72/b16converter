@@ -1,0 +1,26 @@
+name: Build for Linux
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install dependencies
+      run: apt update -y && apt install meson build-essential libmagick++-dev
+    - name: Set up build directory
+      run: meson setup builddir
+    - name: Build
+      run: meson compile -C builddir
+    - name: Upload built executable
+      uses: actions/upload-artifact@v3.1.3
+      with:
+        name: linux
+        path: builddir/b16converter
