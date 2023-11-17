@@ -1,0 +1,10 @@
+{
+	"C_Cpp.default.compileCommands": "builddir/compile_commands.json",
+	"mesonbuild.configureOnOpen": true,
+	"files.associations": {
+		"cstdint": "cpp",
+		"iosfwd": "cpp",
+		"*.ipp": "cpp",
+		"ios": "cpp"
+	}
+}

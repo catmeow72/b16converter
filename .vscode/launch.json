@@ -1,0 +1,113 @@
+{
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Generate automatic bitmap",
+			"type": "cppdbg",
+			"request": "launch",
+			"program": "${workspaceRoot}/builddir/graphicsconverter",
+			"args": [
+				"-in", "TEST.png",
+				"-out", "testout/TEST.B16"
+			],
+			"stopAtEntry": false,
+			"cwd": "${workspaceRoot}",
+			"environment": [],
+			"externalConsole": false,
+			"MIMode": "gdb",
+			"additionalSOLibSearchPath": "/home/catmeow/.cache/debuginfod_client/",
+			"setupCommands": [
+				{
+					"description": "Enable pretty-printing for gdb",
+					"text": "-enable-pretty-printing",
+					"ignoreFailures": true
+				},
+				{
+					"description": "Set Disassembly Flavor to Intel",
+					"text": "-gdb-set disassembly-flavor intel",
+					"ignoreFailures": true
+				},
+				{
+					"description": "Enable debuginfod",
+					"text": "-gdb-set debuginfod enabled on",
+					"ignoreFailures": true
+				}
+			],
+			"preLaunchTask": "build"
+		},
+		{
+			"name": "Convert file to PNG",
+			"type": "cppdbg",
+			"request": "launch",
+			"program": "${workspaceRoot}/builddir/graphicsconverter",
+			"args": [
+				"-reverse",
+				"-in", "testout/PACK.16P.2B.B16",
+				"-out", "testout/PACK.16P.2B.PNG",
+				"-type", "t"
+			],
+			"stopAtEntry": false,
+			"cwd": "${workspaceRoot}",
+			"environment": [],
+			"externalConsole": false,
+			"MIMode": "gdb",
+			"additionalSOLibSearchPath": "/home/catmeow/.cache/debuginfod_client/",
+			"setupCommands": [
+				{
+					"description": "Enable pretty-printing for gdb",
+					"text": "-enable-pretty-printing",
+					"ignoreFailures": true
+				},
+				{
+					"description": "Set Disassembly Flavor to Intel",
+					"text": "-gdb-set disassembly-flavor intel",
+					"ignoreFailures": true
+				},
+				{
+					"description": "Enable debuginfod",
+					"text": "-gdb-set debuginfod enabled on",
+					"ignoreFailures": true
+				}
+			],
+			"preLaunchTask": "build"
+		},
+		{
+			"name": "Load invalid file",
+			"type": "cppdbg",
+			"request": "launch",
+			"program": "${workspaceRoot}/builddir/graphicsconverter",
+			"args": [
+				"-in", "/dev/null/invalid",
+				"-out", "/dev/null",
+			],
+			"stopAtEntry": false,
+			"cwd": "${workspaceRoot}",
+			"environment": [],
+			"externalConsole": false,
+			"MIMode": "gdb",
+			"additionalSOLibSearchPath": "/home/catmeow/.cache/debuginfod_client/",
+			"setupCommands": [
+				{
+					"description": "Enable pretty-printing for gdb",
+					"text": "-enable-pretty-printing",
+					"ignoreFailures": true
+				},
+				{
+					"description": "Set Disassembly Flavor to Intel",
+					"text": "-gdb-set disassembly-flavor intel",
+					"ignoreFailures": true
+				},
+				{
+					"description": "Enable debuginfod",
+					"text": "-gdb-set debuginfod enabled on",
+					"ignoreFailures": true
+				}
+			],
+			"preLaunchTask": "build"
+		}
+
+	]
+}
