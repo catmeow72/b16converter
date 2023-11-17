@@ -4,7 +4,7 @@ project('graphicsconverter', 'cpp',
                      'cpp_std=c++14'])
 
 deps = [
-	dependency('Magick++', version : '>=7.0')
+	dependency('Magick++', version : '>=6.9.11')
 ]
 srcs = [
 	'palette.cpp',
