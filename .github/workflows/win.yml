@@ -19,7 +19,7 @@ jobs:
       with:
         msystem: UCRT64
         update: true
-        install: git mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-imagemagick mingw-w64-ucrt-x86_64-meson
+        install: git mingw-w64-ucrt-x86_64-toolchain mingw-w64-ucrt-x86_64-imagemagick mingw-w64-ucrt-x86_64-meson
     - name: Set up build directory
       run: meson setup builddir
     - name: Build
