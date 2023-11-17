@@ -20,7 +20,7 @@ void usage() {
 	printf("-out <output>\n");
 	printf("\tSets the output file");
 	printf("-bpp <bpp>\n");
-	printf("\tSets the desired bits per pixel. May be 0 (default), 2, 4, or 8. 0: automatic.\n");
+	printf("\tSets the desired bits per pixel. May be 0 (default), 1, 2, 4, or 8. 0: automatic.\n");
 	printf("-significant <color count>\n");
 	printf("\tSets the desired number of significant palette entries. Must be at least 0 and at most 256. 0 means automatic. Default: 0\n");
 	printf("-resize <width> <height>\n");
@@ -80,6 +80,7 @@ int main(int argc, char **argv) {
 			}
 			switch (tbpp) {
 				case 0:
+				case 1:
 				case 2:
 				case 4:
 				case 8:
