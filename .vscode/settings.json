@@ -5,6 +5,13 @@
 		"cstdint": "cpp",
 		"iosfwd": "cpp",
 		"*.ipp": "cpp",
-		"ios": "cpp"
+		"ios": "cpp",
+		"chrono": "cpp",
+		"random": "cpp",
+		"limits": "cpp",
+		"semaphore": "cpp",
+		"valarray": "cpp",
+		"ratio": "cpp",
+		"algorithm": "cpp"
 	}
 }

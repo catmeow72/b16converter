@@ -4,9 +4,10 @@
 #include "palette.h"
 using namespace Magick;
 using std::vector;
-enum BitmapX16DebugFlags {
+enum BitmapX16DebugFlags : int {
 	DebugNone = 0,
 	DebugShowPalette = (1 << 0),
+	DebugShowCloseness = (1 << 1)
 };
 class BitmapX16 {
 	/// \brief Bits per pixel of the image
@@ -75,45 +76,54 @@ class BitmapX16 {
 	/// \returns The palette entry index
 	uint8_t color_to_palette_entry(const ColorRGB &rgb);
 	uint8_t extra_to_real_palette(uint8_t idx);
+	float closeness_to_color(PaletteEntry a, PaletteEntry b);
 	public:
 	/// \brief Sets the border color extra palette entry.
 	/// \param idx The index of the palette entry, must be an index into the extra palette entry list.
 	void set_border_color(uint8_t idx);
 	/// \brief Gets the current extra palette entry of the border color
 	/// \returns The border color palette entry from the extra palette entry list
-	uint8_t get_border_color();
+	uint8_t get_border_color() const;
 	/// \brief Adds an entry to the list of extra palette entries. Not guaranteed to continue existing after a new palette entry has been added.
 	/// \param entry The new entry to add
 	/// \returns The palette index within the extra palette entries of the new entry
 	uint8_t add_palette_entry(PaletteEntry entry);
+	/// \brief Obtains a palette entry within the image
+	/// \param id The index of the palette entry
+	/// \param extra Set to true for an extra palette entry, false for a normal palette entry.
+	/// \returns The palette entry requested.
+	PaletteEntry get_palette_entry(uint8_t id, bool extra) const;
 	/// \brief Sets the bits per pixel of the image
 	/// \param bpp The bits per pixel of the image, one of 1, 2, 4, or 8
 	void set_bpp(uint8_t bpp);
 	/// \brief Returns the bits per pixel of the image
 	/// \returns The bits per pixel of the image, one of 1, 2, 4, or 8
-	uint8_t get_bpp();
+	uint8_t get_bpp() const;
 	/// \brief Sets the maximum amount of colors to be used.
 	/// \param value The maximum amount of colors to use.
 	void set_significant(uint8_t value);
 	/// \brief Returns the maximum amount of colors to be used
 	/// \returns The maximum amount of colors once written
-	uint8_t get_significant();
+	uint8_t get_significant() const;
+	/// \brief Gets the beginning index of the significant palette entries.
+	/// \returns The start index of significant palette entries.
+	uint8_t get_significant_start() const;
 	/// \brief Queues a resize operation. Call BitmapX16::apply() to apply
 	/// \param w The width to resize to
 	/// \param h The height to resize to
 	void queue_resize(size_t w, size_t h);
 	/// \brief Gets the width of the image
 	/// \returns The width of the image
-	size_t get_width();
+	size_t get_width() const;
 	/// \brief Gets the height of the image
 	/// \returns The height of the image
-	size_t get_height();
+	size_t get_height() const;
 	/// \brief Enables or disables dithering
 	/// \param enabled Pass true to enable, false to disable
 	void enable_dithering(bool enabled);
 	/// \brief Returns the status of the dithering flag
 	/// \returns The value of the dithering flag
-	bool dithering_enabled();
+	bool dithering_enabled() const;
 	/// \brief Applies queued operations to the internal representation of the image
 	void apply();
 	/// \brief Applies queued operations and writes the image to a PC-compatible file
@@ -128,7 +138,7 @@ class BitmapX16 {
 	/// \brief Loads a Commander X16-compatible image file
 	/// \param filename The path to the file to load
 	void load_x16(const char *filename);
-
+	static void set_debug_flag(BitmapX16DebugFlags flag, bool enabled = true);
 	/// \brief The debug flags to use.
 	static BitmapX16DebugFlags debug;
 	/// \brief Constructs an unloaded X16-compatible bitmap image. Call load_pc or load_x16 before using any other functions.

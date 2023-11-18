@@ -1,10 +1,12 @@
 #include "bitmapx16.h"
 #include <string.h>
 #include <fstream>
+#include <filesystem>
 #include <exception>
+using namespace std::filesystem;
 #define X16_IMG_START (512+32)
 BitmapX16DebugFlags BitmapX16::debug = DebugNone;
-float closeness_to_color(PaletteEntry a, PaletteEntry b) {
+float BitmapX16::closeness_to_color(PaletteEntry a, PaletteEntry b) {
 	float closeness = ((float)((((float)a.r - (float)b.r) * (1 << 4)) + (((float)a.g - (float)b.g) * (1 << 8)) + ((float)a.b - (float)b.b)));
 	if (closeness < 0.0f) {
 		closeness = -closeness;
@@ -18,7 +20,7 @@ void BitmapX16::set_bpp(uint8_t bpp) {
 		set_significant((1 << bpp) - 1);
 	}
 }
-uint8_t BitmapX16::get_bpp() {
+uint8_t BitmapX16::get_bpp() const {
 	return bpp;
 }
 void BitmapX16::set_significant(uint8_t value) {
@@ -28,19 +30,19 @@ void BitmapX16::set_significant(uint8_t value) {
 	significant_count = value;
 	quantize_colors = true;
 }
-uint8_t BitmapX16::get_significant() {
+uint8_t BitmapX16::get_significant() const {
 	return significant_count;
 }
-size_t BitmapX16::get_width() {
+size_t BitmapX16::get_width() const {
 	return w;
 }
-size_t BitmapX16::get_height() {
+size_t BitmapX16::get_height() const {
 	return h;
 }
 void BitmapX16::enable_dithering(bool enabled) {
 	dither = enabled;
 }
-bool BitmapX16::dithering_enabled() {
+bool BitmapX16::dithering_enabled() const {
 	return dither;
 }
 void BitmapX16::resize(size_t w, size_t h) {
@@ -58,22 +60,18 @@ void BitmapX16::apply() {
 		th = 0;
 	}
 	if (bpp == 0) {
-		bpp = 8;
-		quantize_colors = true;
+		set_bpp(8);
 	}
-	if (significant_count == 0) {
-		significant_count = (1 << bpp) - 1;
-		quantize_colors = true;
+	if (significant_count == 0 || significant_count >= (1 << bpp)) {
+		set_significant((1 << bpp) - 1);
 	}
-	if (quantize_colors) {
-		image->quantizeColors(significant_count);
-		image->quantizeDither(dither);
-		if (dither) {
-			image->quantizeDitherMethod(Magick::FloydSteinbergDitherMethod);
-		}
-		image->quantize();
-		generate_palette();
+	image->quantizeColors(significant_count);
+	image->quantizeDither(dither);
+	if (dither) {
+		image->quantizeDitherMethod(Magick::FloydSteinbergDitherMethod);
 	}
+	image->quantize();
+	generate_palette();
 }
 uint8_t BitmapX16::extra_to_real_palette(uint8_t idx) {
 	return image_palette_count + idx;
@@ -157,7 +155,15 @@ void BitmapX16::load_x16(const char *filename) {
 	vector<uint8_t> pixels;
 	bufsize = 3;
 	buf.resize(bufsize);
+	if (!exists(filename)) {
+		printf("File not found!\n");
+		throw std::exception();
+	}
 	std::ifstream infile(filename, std::ifstream::binary);
+	if (infile.bad()) {
+		printf("Failed to open file!\n");
+		throw std::exception();
+	}
 	infile.read((char*)buf.data() + bufpos, bufsize - bufpos);
 	bufpos += bufsize - bufpos;
 	uint8_t magic[3] = {0x42, 0x4D, 0x58};
@@ -176,7 +182,7 @@ void BitmapX16::load_x16(const char *filename) {
 		throw std::exception();
 	}
 	bpp = buf[4];
-	uint8_t vera_color_depth = buf[5]; // Ignore for now.
+	/*uint8_t vera_color_depth = buf[5];*/ // Ignore for now.
 	pixels_per_byte = (8 / bpp);
 	w = buf[6] | (buf[7] << 8);
 	h = buf[8] | (buf[9] << 8);
@@ -192,7 +198,7 @@ void BitmapX16::load_x16(const char *filename) {
 	bufpos += bufsize - bufpos;
 
 	for (size_t i = 0; i < 256; i++) {
-		palette[i] = PaletteEntry(buf.data() + (32+(i*2)));
+		palette[(uint8_t)(i-significant_start)] = PaletteEntry(buf.data() + (32+(i*2)));
 	}
 	// Border is always an extra palette entry.
 	extra_palette_entries.push_back(palette[border]);
@@ -232,6 +238,13 @@ void BitmapX16::write_pc(const char *filename) {
 	}
 	image->write(filename);
 }
+PaletteEntry BitmapX16::get_palette_entry(uint8_t idx, bool extra) const {
+	if (extra) {
+		return extra_palette_entries.at(idx);
+	} else {
+		return palette[idx];
+	}
+}
 void BitmapX16::load_pc(const char *filename) {
 	image = new Image(filename);
 	w = image->columns();
@@ -265,7 +278,6 @@ BitmapX16::BitmapX16() {
 }
 void BitmapX16::generate_palette() {
 	uint16_t max = (uint16_t)image->colorMapSize();
-	uint8_t color[3];
 	if (max > 256) max = 256;
 	if (bpp == 0) {
 		if (max <= 4) {
@@ -276,25 +288,36 @@ void BitmapX16::generate_palette() {
 			bpp = 8;
 		}
 	}
+	size_t min = 256 - (1 << bpp);
+	if (min >= 16) {
+		significant_start = 16;
+	}
 	if (significant_count == 0) {
 		significant_count = max;
 	}
 	bitmask = (1 << bpp) - 1;
-	for (uint16_t i = 0; i < max; i++) {
-		ColorRGB map_color = image->colorMap(i);
+	for (uint16_t i = 0; i < significant_start; i++) {
+		palette[i] = PaletteEntry();
+	}
+	for (uint16_t i = significant_start; i < max+significant_start; i++) {
+		ColorRGB map_color = image->colorMap(i-significant_start);
 		palette[i] = PaletteEntry(map_color);
 	}
 	image_palette_count = max;
-	for (uint16_t i = max; i < 256; i++) {
-		if ((uint16_t)extra_palette_entries.size() > i - max) {
-			palette[i] = extra_palette_entries[i - max];
+	for (uint16_t i = max+significant_start; i < 256; i++) {
+		if ((uint16_t)extra_palette_entries.size() > i - (max+significant_start)) {
+			palette[i] = extra_palette_entries[i - (max+significant_start)];
 		} else {
 			palette[i] = PaletteEntry();
 		}
 	}
-	return;
-	for (uint16_t i = 0; i < max; i++) {
-		printf("pallete[%u] = #%02x%02x%02x\n", i, palette[i].r, palette[i].g, palette[i].b);
+	if (debug & DebugShowPalette) {
+		for (size_t i = 0; i < 256; i++) {
+			uint8_t significant_end = significant_start+significant_count;
+			bool significant = i >= significant_start && i < significant_end;
+			bool extra = i >= significant_end && i < significant_end+extra_palette_entries.size();
+			printf("palette[%02x] = %s %s\n", (uint16_t)i, palette[i].to_string().c_str(), significant ? "(Significant)" : extra ? "(Extra)" : "");
+		}
 	}
 }
 uint8_t BitmapX16::add_palette_entry(PaletteEntry entry) {
@@ -305,7 +328,10 @@ uint8_t BitmapX16::color_to_palette_entry(const ColorRGB &rgb) {
 	PaletteEntry color(rgb);
 	float closeness = 100000.0f;
 	uint8_t output;
-	for (size_t i = 0; i < significant_count; i++) {
+	if (debug & DebugShowCloseness) {
+		printf("Closest color for %s: ", color.to_string().c_str());
+	}
+	for (size_t i = significant_start; i < significant_count+significant_start; i++) {
 		float possibility_closeness = closeness_to_color(palette[i], color);
 		//printf("Closeness: %f", possibility_closeness);
 		if (possibility_closeness < closeness) {
@@ -313,16 +339,32 @@ uint8_t BitmapX16::color_to_palette_entry(const ColorRGB &rgb) {
 			closeness = possibility_closeness;
 		}
 	}
+	if (debug & DebugShowCloseness) {
+		PaletteEntry output_entry = palette[output];
+		printf("%s\n", output_entry.to_string().c_str());
+	}
 	//PaletteEntry entry = palette[output];
 	//printf("Color: #%0x%0x%0x -> Palette entry#%0x%0x%0x, closeness: %f\n", color.r, color.g, color.b , entry.r, entry.g, entry.b, closeness);
 	return output;
+}
+void BitmapX16::set_debug_flag(BitmapX16DebugFlags flag, bool enabled) {
+	int value = (int)debug;
+	if (enabled) {
+		value |= (int)flag;
+	} else {
+		value &= ~(int)flag;
+	}
+	debug = (BitmapX16DebugFlags)value;
 }
 BitmapX16::~BitmapX16() {
 	if (image != nullptr) {
 		delete image;
 	}
 }
-uint8_t BitmapX16::get_border_color() {
+uint8_t BitmapX16::get_significant_start() const {
+	return significant_start;
+}
+uint8_t BitmapX16::get_border_color() const {
 	return border;
 }
 void BitmapX16::set_border_color(uint8_t idx) {
