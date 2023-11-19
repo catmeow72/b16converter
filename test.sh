@@ -114,14 +114,14 @@ for img in "${images[@]}"; do
 			height="$(echo -n "$size" | cut -dx -f2)"
 			name="$(basename "$img" | sed 's/\.png$//')"
 			name="$(printf "%s.%sP.%sB" "$name" "$width" "$bpp")"
-			run "$converter" -in "$img" -out "$outdir/$name.B16" -bpp "$bpp" -resize "$width" "$height" -border 15 0 15 -debug "$debug_flags"
+			run "$converter" -in "$img" -out "$outdir/$name.BMX" -bpp "$bpp" -resize "$width" "$height" -border 15 0 15 -debug "$debug_flags"
 			if [ $enable_dither -ne 0 ]; then
-				run "$converter" -in "$img" -out "$outdir/$name.D.B16" -bpp "$bpp" -resize "$width" "$height" -dither -border 15 0 15 -debug "$debug_flags"
+				run "$converter" -in "$img" -out "$outdir/$name.D.BMX" -bpp "$bpp" -resize "$width" "$height" -dither -border 15 0 15 -debug "$debug_flags"
 			fi
 			if [ $enable_reverse -ne 0 ]; then
-				run "$converter" -reverse -in "$outdir/$name.B16" -out "$outdir/$name.PNG" -resize "$width" "$height" -debug "$debug_flags"
+				run "$converter" -reverse -in "$outdir/$name.BMX" -out "$outdir/$name.PNG" -resize "$width" "$height" -debug "$debug_flags"
 				if [ $enable_dither -ne 0 ]; then
-					run "$converter" -reverse -in "$outdir/$name.D.B16" -out "$outdir/$name.D.PNG" -resize "$width" "$height" -dither -debug "$debug_flags"
+					run "$converter" -reverse -in "$outdir/$name.D.BMX" -out "$outdir/$name.D.PNG" -resize "$width" "$height" -dither -debug "$debug_flags"
 				fi
 			fi
 		done
