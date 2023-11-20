@@ -2,7 +2,7 @@
 A converter to/from the B16/BMX bitmap format being developed for the Commander X16
 
 ## Building
-This program requires ImageMagick, and Magick++ (which may come with ImageMagick)
+This program requires Magick++ (which may come with ImageMagick)
 
 Steps:
 1. Clone the repo. For example: ``git clone https://github.com/catmeow72/b16converter.git b16converter``
