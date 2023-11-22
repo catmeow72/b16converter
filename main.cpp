@@ -7,6 +7,7 @@
 #include <vector>
 #include <string>
 #include <exception>
+#include <lib.h>
 #include "bitmapx16.h"
 using std::vector;
 using std::map;
@@ -35,6 +36,8 @@ void usage() {
 	printf("\tEnables debugging flags. May contain any number of single-letter debugging flags.\n");
 	printf("\tFlags: p = show palette entry, c = show palette closeness lookups\n");
 	printf("\tUse an ! before a flag to disable it.\n");
+	printf("-compress\n");
+	printf("\tCompresses the image with LZSA compression\n");
 	printf("-help\n");
 	printf("\tDisplays this help message.\n");
 	exit(1);
@@ -47,6 +50,7 @@ int main(int argc, char **argv) {
 	const char *error_msg_part = "load the image";
 	bool dither = false;
 	bool reverse = false;
+	bool compress = false;
 	uint8_t br, bg, bb;
 	bool border_set = false;
 	InitializeMagick(*argv);
@@ -180,6 +184,10 @@ int main(int argc, char **argv) {
 			reverse = true;
 			argc--;
 			argv++;
+		} else if (!strcmp(argv[0], "-compress")) {
+			compress = true;
+			argc--;
+			argv++;
 		} else if (!strcmp(argv[0], "-help")) {
 			usage();
 		} else if (!strcmp(argv[0], "-debug")) {
@@ -224,15 +232,15 @@ int main(int argc, char **argv) {
 	if (tcolorcount == 0) tcolorcount = (1 << tbpp);
 	try {
 		BitmapX16 bitmap;
+		bitmap.enable_compression(compress);
 		if (reverse) {
 			printf("Loading X16 bitmap file '%s' to be convertedto a PC format...\n", input);
 			bitmap.load_x16(input);
 			printf("Image has %u significant colors starting at %u and is %u bpp\n", bitmap.get_significant(), bitmap.get_significant_start(), bitmap.get_bpp());
-			PaletteEntry border = bitmap.get_palette_entry(bitmap.get_border_color(), true);
-			printf("Border color: %s\n", border.to_string().c_str());
 		} else {
 			printf("Loading PC image file '%s' to be converted to the X16 bitmap format...\n", input);
 			printf("Using at most %u colors (excluding border color) at %u bpp\n", tcolorcount, tbpp);
+			if (bitmap.compression_enabled()) printf("Compression enabled\n");
 			bitmap.load_pc(input);
 		}
 		if (tw != 0 && th != 0) {

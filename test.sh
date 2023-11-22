@@ -31,11 +31,12 @@ resize=()
 enable_defaults=1
 dither=1
 reverse=1
+enable_compression=1
 enable_reverse=1
 enable_dither=1
 debug_flags=""
 outdir="testout"
-OPTIONS=$(getopt -o "b:hp:i:r:no:d:" --long "help,use-program:,input-image:,output-bpp:,resize:,no-defaults,output-dir:,debug:,no-reverse,no-dither" -- "$@")
+OPTIONS=$(getopt -o "b:hp:i:r:no:d:" --long "help,use-program:,input-image:,output-bpp:,resize:,no-defaults,output-dir:,debug:,no-reverse,no-dither,no-compress" -- "$@")
 if [ $? != 0 ]; then
 	echo "Getopt error."
 	usage
@@ -79,6 +80,10 @@ while [ -n "$1" ]; do
 			enable_dither=0
 			shift
 			;;
+		--no-compress)
+			enable_compression=0
+			shift
+			;;
 		-d|--debug)
 			debug_flags="${debug_flags}$2"
 			shift 2
@@ -110,20 +115,30 @@ run() {
 for img in "${images[@]}"; do
 	for bpp in "${bpps[@]}"; do
 		for size in "${resize[@]}"; do
-			width="$(echo -n "$size" | cut -dx -f1)"
-			height="$(echo -n "$size" | cut -dx -f2)"
-			name="$(basename "$img" | sed 's/\.png$//')"
-			name="$(printf "%s.%sP.%sB" "$name" "$width" "$bpp")"
-			run "$converter" -in "$img" -out "$outdir/$name.BMX" -bpp "$bpp" -resize "$width" "$height" -border 15 0 15 -debug "$debug_flags"
-			if [ $enable_dither -ne 0 ]; then
-				run "$converter" -in "$img" -out "$outdir/$name.D.BMX" -bpp "$bpp" -resize "$width" "$height" -dither -border 15 0 15 -debug "$debug_flags"
-			fi
-			if [ $enable_reverse -ne 0 ]; then
-				run "$converter" -reverse -in "$outdir/$name.BMX" -out "$outdir/$name.PNG" -resize "$width" "$height" -debug "$debug_flags"
-				if [ $enable_dither -ne 0 ]; then
-					run "$converter" -reverse -in "$outdir/$name.D.BMX" -out "$outdir/$name.D.PNG" -resize "$width" "$height" -dither -debug "$debug_flags"
+			for compressflag in -compress ""; do
+				width="$(echo -n "$size" | cut -dx -f1)"
+				height="$(echo -n "$size" | cut -dx -f2)"
+				name="$(basename "$img" | sed 's/\.png$//')"
+				name="$(printf "%s.%sP.%sB" "$name" "$width" "$bpp")"
+				extraflags=()
+				if [ -n "$compressflag" ]; then
+					if [ $enable_compression -eq 0 ]; then
+						continue
+					fi
+					extraflags+=( "$compressflag" )
+					name+=".C"
 				fi
-			fi
+				run "$converter" "${extraflags[@]}" -in "$img" -out "$outdir/$name.BMX" -bpp "$bpp" -resize "$width" "$height" -border 15 0 15 -debug "$debug_flags"
+				if [ $enable_dither -ne 0 ]; then
+					run "$converter" "${extraflags[@]}" -in "$img" -out "$outdir/$name.D.BMX" -bpp "$bpp" -resize "$width" "$height" -dither -border 15 0 15 -debug "$debug_flags"
+				fi
+				if [ $enable_reverse -ne 0 ]; then
+					run "$converter" "${extraflags[@]}" -reverse -in "$outdir/$name.BMX" -out "$outdir/$name.PNG" -resize "$width" "$height" -debug "$debug_flags"
+					if [ $enable_dither -ne 0 ]; then
+						run "$converter" "${extraflags[@]}" -reverse -in "$outdir/$name.D.BMX" -out "$outdir/$name.D.PNG" -resize "$width" "$height" -dither -debug "$debug_flags"
+					fi
+				fi
+			done
 		done
 	done
 done

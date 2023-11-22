@@ -12,9 +12,9 @@ enum BitmapX16DebugFlags : int {
 class BitmapX16 {
 	/// \brief Bits per pixel of the image
 	uint8_t bpp = 0;
-	/// \brief The palette entries used within this image
-	PaletteEntry palette[256];
-	/// \brief Any extra palette entries to add.
+	/// \brief The list of palette entries.
+	vector<PaletteEntry> palette_entries;
+	/// \brief A copy of the extra palette entries.
 	vector<PaletteEntry> extra_palette_entries;
 	/// \brief The amount of colors used within the palette
 	uint8_t significant_count = 0;
@@ -24,6 +24,8 @@ class BitmapX16 {
 	Image *image = nullptr;
 	/// \brief Set to true to queue color quantization. Set automatically when needed.
 	bool quantize_colors = false;
+	/// \brief Enables LZSA compression
+	bool compress = false;
 	/// \brief Current width
 	size_t w = 0;
 	/// \brief Current height
@@ -88,11 +90,6 @@ class BitmapX16 {
 	/// \param entry The new entry to add
 	/// \returns The palette index within the extra palette entries of the new entry
 	uint8_t add_palette_entry(PaletteEntry entry);
-	/// \brief Obtains a palette entry within the image
-	/// \param id The index of the palette entry
-	/// \param extra Set to true for an extra palette entry, false for a normal palette entry.
-	/// \returns The palette entry requested.
-	PaletteEntry get_palette_entry(uint8_t id, bool extra) const;
 	/// \brief Sets the bits per pixel of the image
 	/// \param bpp The bits per pixel of the image, one of 1, 2, 4, or 8
 	void set_bpp(uint8_t bpp);
@@ -124,6 +121,12 @@ class BitmapX16 {
 	/// \brief Returns the status of the dithering flag
 	/// \returns The value of the dithering flag
 	bool dithering_enabled() const;
+	/// \brief Enables or disables LZSA compression
+	/// \param enabled Pass true to enable, false to disable
+	void enable_compression(bool enabled);
+	/// \brief Returns the status of the LZSA compression flag
+	/// \returns The value of the compression flag.
+	bool compression_enabled() const;
 	/// \brief Applies queued operations to the internal representation of the image
 	void apply();
 	/// \brief Applies queued operations and writes the image to a PC-compatible file

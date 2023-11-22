@@ -1,4 +1,5 @@
 #include "bitmapx16.h"
+#include <lib.h>
 #include <string.h>
 #include <fstream>
 #include <filesystem>
@@ -16,9 +17,6 @@ float BitmapX16::closeness_to_color(PaletteEntry a, PaletteEntry b) {
 void BitmapX16::set_bpp(uint8_t bpp) {
 	this->bpp = bpp;
 	quantize_colors = true;
-	if (get_significant() >= (1 << bpp)) {
-		set_significant((1 << bpp) - 1);
-	}
 }
 uint8_t BitmapX16::get_bpp() const {
 	return bpp;
@@ -81,6 +79,8 @@ void BitmapX16::write_x16(const char *filename) {
 	size_t bufsize;
 	uint8_t pixels_per_byte;
 	vector<uint8_t> pixels;
+	vector<uint8_t> outpixels;
+	size_t outpixelsize;
 	size_t pixelCount;
 	pixels_per_byte = (8/bpp);
 	apply();
@@ -89,8 +89,10 @@ void BitmapX16::write_x16(const char *filename) {
 	printf("Image size: (%lu, %lu)\n", w, h);
 	pixelCount = w * h * 3;
 	pixels.resize(pixelCount);
-	bufsize = 512+32+((w*h)/pixels_per_byte);
+	bufsize = palette_entries.size()*2+32;
 	buf.resize(bufsize);
+	outpixelsize = ((w*h)/pixels_per_byte);
+	outpixels.resize(outpixelsize);
 	memset(buf.data(), 0, bufsize);
 	buf[0] = 0x42;
 	buf[1] = 0x4D;
@@ -120,14 +122,19 @@ void BitmapX16::write_x16(const char *filename) {
 	buf[7] = w >> 8;
 	buf[8] = h;
 	buf[9] = h >> 8;
-	buf[10] = extra_to_real_palette(border);
-	buf[11] = significant_count;
-	buf[12] = significant_start;
-	for (size_t i = 13; i < 32; i++) {
+	buf[10] = palette_entries.size();
+	buf[11] = significant_start;
+	uint16_t image_start = 32+(2*palette_entries.size())+1;
+	buf[12] = image_start;
+	buf[13] = image_start>>8;
+	buf[14] = compress ? 255 : 0;
+	--image_start;
+	for (size_t i = 15; i < 31; i++) {
 		buf[i] = 0; // Reserved bytes.
 	}
-	for (size_t i = 0; i < 256; i++) {
-		palette[i].write(buf.data() + (32+(i*2)));
+	buf[31] = extra_to_real_palette(border);
+	for (size_t i = 0; i < palette_entries.size(); i++) {
+		palette_entries[i].write(buf.data() + (32+(i*2)));
 	}
 	for (size_t i = 0, x = 0, y = 0; i < (w * h); i++, x++) {
 		if (x >= w) {
@@ -135,11 +142,23 @@ void BitmapX16::write_x16(const char *filename) {
 			y += 1;
 		}
 		ColorRGB px = image->pixelColor(x, y);
-		size_t imagestart = (32+512);
 		size_t pixelIdx = get_pixel_idx(x, y);
 		size_t imagebyteidx = get_byte_idx(pixelIdx);
 		uint8_t pixelinbyte = get_inner_idx(pixelIdx);
-		buf[imagestart + imagebyteidx] |= (color_to_palette_entry(px) & get_bitmask()) << (bpp * pixelinbyte);
+		outpixels[imagebyteidx] |= (color_to_palette_entry(px) & get_bitmask()) << (bpp * pixelinbyte);
+	}
+	bufsize += outpixelsize;
+	buf.resize(bufsize);
+	if (compress) {
+		size_t compressed_size = lzsa_compress_inmem(outpixels.data(), buf.data() + image_start, outpixelsize, bufsize - image_start, LZSA_FLAG_RAW_BLOCK, 1, 2);
+		if (compressed_size == (size_t)-1) {
+			printf("Error compressing file\n");
+			throw std::exception();
+		}
+		bufsize -= outpixelsize - compressed_size;
+		buf.resize(bufsize);
+	} else {
+		memcpy(buf.data() + image_start, outpixels.data(), outpixelsize);
 	}
 	printf("Writing output file %s...\n", filename);
 	std::ofstream outfile(filename,std::ofstream::binary);
@@ -151,7 +170,11 @@ void BitmapX16::load_x16(const char *filename) {
 	vector<uint8_t> buf;
 	size_t bufsize = 0;
 	size_t bufpos = 0;
+	uint8_t palette_used = 0;
 	uint8_t pixels_per_byte;
+	uint16_t image_start = 0;
+	bool compressed = false;
+	vector<uint8_t> decompression_buffer;
 	vector<uint8_t> pixels;
 	bufsize = 3;
 	buf.resize(bufsize);
@@ -173,7 +196,7 @@ void BitmapX16::load_x16(const char *filename) {
 			throw std::exception();
 		}
 	}
-	bufsize += 10;
+	bufsize += 12;
 	buf.resize(bufsize);
 	infile.read((char*)buf.data() + bufpos, bufsize - bufpos);
 	bufpos += bufsize - bufpos;
@@ -187,24 +210,37 @@ void BitmapX16::load_x16(const char *filename) {
 	w = buf[6] | (buf[7] << 8);
 	h = buf[8] | (buf[9] << 8);
 	printf("Image size: (%lu, %lu)\n", w, h);
-	border = buf[10];
-	significant_count = buf[11];
-	significant_start = buf[12];
-	bufsize += 19;
-	bufsize += 512;
-	bufsize += (w * h)/pixels_per_byte;
+	palette_used = buf[10];
+	significant_start = buf[11];
+	significant_count = palette_used;
+	image_palette_count = 0;
+	image_start = buf[12] | (buf[13] << 8);
+	if ((int8_t)buf[14] == -1) {
+		compressed = true;
+	}
+	--image_start;
+	bufsize = std::filesystem::file_size(filename);
 	buf.resize(bufsize);
 	infile.read((char*)buf.data() + bufpos, bufsize - bufpos);
 	bufpos += bufsize - bufpos;
-
-	for (size_t i = 0; i < 256; i++) {
-		palette[(uint8_t)(i-significant_start)] = PaletteEntry(buf.data() + (32+(i*2)));
+	border = buf[31];
+	palette_entries.clear();
+	for (size_t i = 0; i < palette_used; i++) {
+		palette_entries.push_back(PaletteEntry(buf.data() + (32+(i*2))));
 	}
-	// Border is always an extra palette entry.
-	extra_palette_entries.push_back(palette[border]);
-	border = extra_palette_entries.size() - 1;
 	// Get pixel vector for later use as image data.
 	pixels.resize(w * h * 3);
+	decompression_buffer.resize(w*h/pixels_per_byte);
+	if (compressed) {
+		int version;
+		size_t bytes = lzsa_decompress_inmem(buf.data() + image_start, decompression_buffer.data(), bufsize - image_start, decompression_buffer.size(), LZSA_FLAG_RAW_BLOCK, &version);
+		if (bytes == (size_t)-1) {
+			printf("Error decompressing file!\n");
+			throw std::exception();
+		}
+	} else {
+		memcpy(decompression_buffer.data(), buf.data() + image_start, decompression_buffer.size());
+	}
 	size_t outpixelidx = 0;
 	for (size_t i = 0, x = 0, y = 0; i < (w * h); i++, x++) {
 		// Make sure Y is incremented when necessary.
@@ -213,17 +249,19 @@ void BitmapX16::load_x16(const char *filename) {
 			y += 1;
 		}
 		// Get the required data.
-		size_t imagestart = (32+512);
 		size_t pixelIdx = get_pixel_idx(x, y);
 		size_t imagebyteidx = get_byte_idx(pixelIdx);
 		uint8_t pixelinbyte = get_inner_idx(pixelIdx);
-		uint8_t paletteidx = (buf[imagestart + imagebyteidx] >> (pixelinbyte * bpp)) & (get_bitmask());
-		PaletteEntry entry = palette[paletteidx];
+		uint8_t paletteidx = (decompression_buffer[imagebyteidx] >> (pixelinbyte * bpp)) & (get_bitmask());
+		PaletteEntry entry = palette_entries[paletteidx];
 		uint8_t r = entry.r << 4, g = entry.g << 4, b = entry.b << 4;
 		// Add the pixel data to the pixels array.
 		pixels[outpixelidx++] = r;
 		pixels[outpixelidx++] = g;
 		pixels[outpixelidx++] = b;
+		if (paletteidx > image_palette_count+significant_start) {
+			image_palette_count = paletteidx-significant_start;
+		}
 	}
 	// Create the Magick++ image
 	image = new Image(w, h, "RGB", CharPixel, pixels.data());
@@ -237,13 +275,6 @@ void BitmapX16::write_pc(const char *filename) {
 		throw std::exception();
 	}
 	image->write(filename);
-}
-PaletteEntry BitmapX16::get_palette_entry(uint8_t idx, bool extra) const {
-	if (extra) {
-		return extra_palette_entries.at(idx);
-	} else {
-		return palette[idx];
-	}
 }
 void BitmapX16::load_pc(const char *filename) {
 	image = new Image(filename);
@@ -274,7 +305,7 @@ uint8_t BitmapX16::get_orable_pixel(uint8_t pixelinbyte, uint8_t color) {
 }
 
 BitmapX16::BitmapX16() {
-	extra_palette_entries = vector<PaletteEntry>();
+	palette_entries = vector<PaletteEntry>();
 }
 void BitmapX16::generate_palette() {
 	uint16_t max = (uint16_t)image->colorMapSize();
@@ -296,27 +327,22 @@ void BitmapX16::generate_palette() {
 		significant_count = max;
 	}
 	bitmask = (1 << bpp) - 1;
-	for (uint16_t i = 0; i < significant_start; i++) {
-		palette[i] = PaletteEntry();
-	}
-	for (uint16_t i = significant_start; i < max+significant_start; i++) {
-		ColorRGB map_color = image->colorMap(i-significant_start);
-		palette[i] = PaletteEntry(map_color);
-	}
 	image_palette_count = max;
-	for (uint16_t i = max+significant_start; i < 256; i++) {
-		if ((uint16_t)extra_palette_entries.size() > i - (max+significant_start)) {
-			palette[i] = extra_palette_entries[i - (max+significant_start)];
-		} else {
-			palette[i] = PaletteEntry();
-		}
+	palette_entries.clear();
+	for (uint16_t i = 0; i < image_palette_count; i++) {
+		ColorRGB map_color = image->colorMap(i);
+		palette_entries.push_back(PaletteEntry(map_color));
 	}
+	for (uint16_t i = 0; i < extra_palette_entries.size(); i++) {
+		palette_entries.push_back(extra_palette_entries[i]);
+	}
+	significant_count = palette_entries.size();
 	if (debug & DebugShowPalette) {
-		for (size_t i = 0; i < 256; i++) {
-			uint8_t significant_end = significant_start+significant_count;
+		for (size_t i = 0; i < palette_entries.size(); i++) {
+			uint8_t significant_end = significant_start+image_palette_count;
 			bool significant = i >= significant_start && i < significant_end;
-			bool extra = i >= significant_end && i < significant_end+extra_palette_entries.size();
-			printf("palette[%02x] = %s %s\n", (uint16_t)i, palette[i].to_string().c_str(), significant ? "(Significant)" : extra ? "(Extra)" : "");
+			bool extra = i >= image_palette_count && i < image_palette_count+extra_palette_entries.size();
+			printf("palette[%02x] = %s %s\n", (uint16_t)i, palette_entries[i].to_string().c_str(), significant ? "(Significant)" : extra ? "(Extra)" : "");
 		}
 	}
 }
@@ -331,8 +357,8 @@ uint8_t BitmapX16::color_to_palette_entry(const ColorRGB &rgb) {
 	if (debug & DebugShowCloseness) {
 		printf("Closest color for %s: ", color.to_string().c_str());
 	}
-	for (size_t i = significant_start; i < significant_count+significant_start; i++) {
-		float possibility_closeness = closeness_to_color(palette[i], color);
+	for (size_t i = 0; i < image_palette_count; i++) {
+		float possibility_closeness = closeness_to_color(palette_entries[i], color);
 		//printf("Closeness: %f", possibility_closeness);
 		if (possibility_closeness < closeness) {
 			output = i;
@@ -340,7 +366,7 @@ uint8_t BitmapX16::color_to_palette_entry(const ColorRGB &rgb) {
 		}
 	}
 	if (debug & DebugShowCloseness) {
-		PaletteEntry output_entry = palette[output];
+		PaletteEntry output_entry = palette_entries[output];
 		printf("%s\n", output_entry.to_string().c_str());
 	}
 	//PaletteEntry entry = palette[output];
@@ -369,4 +395,10 @@ uint8_t BitmapX16::get_border_color() const {
 }
 void BitmapX16::set_border_color(uint8_t idx) {
 	border = idx;
+}
+void BitmapX16::enable_compression(bool enabled) {
+	compress = enabled;
+}
+bool BitmapX16::compression_enabled() const {
+	return compress;
 }

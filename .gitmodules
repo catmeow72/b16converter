@@ -1,0 +1,3 @@
+[submodule "lzsa"]
+	path = lzsa
+	url = https://github.com/emmanuel-marty/lzsa.git
