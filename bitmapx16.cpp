@@ -128,11 +128,11 @@ void BitmapX16::write_x16(const char *filename) {
 	buf[12] = image_start;
 	buf[13] = image_start>>8;
 	buf[14] = compress ? 255 : 0;
+	buf[15] = extra_to_real_palette(border);
 	--image_start;
-	for (size_t i = 15; i < 31; i++) {
+	for (size_t i = 16; i < 32; i++) {
 		buf[i] = 0; // Reserved bytes.
 	}
-	buf[31] = extra_to_real_palette(border);
 	for (size_t i = 0; i < palette_entries.size(); i++) {
 		palette_entries[i].write(buf.data() + (32+(i*2)));
 	}
@@ -219,11 +219,11 @@ void BitmapX16::load_x16(const char *filename) {
 		compressed = true;
 	}
 	--image_start;
+	border = buf[15];
 	bufsize = std::filesystem::file_size(filename);
 	buf.resize(bufsize);
 	infile.read((char*)buf.data() + bufpos, bufsize - bufpos);
 	bufpos += bufsize - bufpos;
-	border = buf[31];
 	palette_entries.clear();
 	for (size_t i = 0; i < palette_used; i++) {
 		palette_entries.push_back(PaletteEntry(buf.data() + (32+(i*2))));
