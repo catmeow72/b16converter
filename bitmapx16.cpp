@@ -124,12 +124,11 @@ void BitmapX16::write_x16(const char *filename) {
 	buf[9] = h >> 8;
 	buf[10] = palette_entries.size();
 	buf[11] = significant_start;
-	uint16_t image_start = 32+(2*palette_entries.size())+1;
+	uint16_t image_start = 32+(2*palette_entries.size());
 	buf[12] = image_start;
 	buf[13] = image_start>>8;
 	buf[14] = compress ? 255 : 0;
 	buf[15] = extra_to_real_palette(border);
-	--image_start;
 	for (size_t i = 16; i < 32; i++) {
 		buf[i] = 0; // Reserved bytes.
 	}
@@ -218,7 +217,6 @@ void BitmapX16::load_x16(const char *filename) {
 	if ((int8_t)buf[14] == -1) {
 		compressed = true;
 	}
-	--image_start;
 	border = buf[15];
 	bufsize = std::filesystem::file_size(filename);
 	buf.resize(bufsize);
