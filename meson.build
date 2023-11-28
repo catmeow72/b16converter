@@ -35,7 +35,7 @@ incdirs = [
 	'lzsa/src',
 	'lzsa/src/libdivsufsort/include'
 ]
-exe = executable('b16converter', srcs,
+exe = executable('bmxconverter', srcs,
   install : true,
   include_directories: incdirs,
   c_args: ['-DHAVE_CONFIG_H=1','-D__STDC_LIMIT_MACROS','-D__STDC_CONSTANT_MACROS','-D__STDC_FORMAT_MACROS'],
