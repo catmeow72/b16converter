@@ -169,7 +169,7 @@ void BitmapX16::load_x16(const char *filename) {
 	vector<uint8_t> buf;
 	size_t bufsize = 0;
 	size_t bufpos = 0;
-	uint8_t palette_used = 0;
+	uint16_t palette_used = 0;
 	uint8_t pixels_per_byte;
 	uint16_t image_start = 0;
 	bool compressed = false;
@@ -210,6 +210,7 @@ void BitmapX16::load_x16(const char *filename) {
 	h = buf[8] | (buf[9] << 8);
 	printf("Image size: (%lu, %lu)\n", w, h);
 	palette_used = buf[10];
+	if (palette_used == 0) palette_used = 256;
 	significant_start = buf[11];
 	significant_count = palette_used;
 	image_palette_count = 0;
@@ -306,7 +307,28 @@ BitmapX16::BitmapX16() {
 	palette_entries = vector<PaletteEntry>();
 }
 void BitmapX16::generate_palette() {
-	uint16_t max = (uint16_t)image->colorMapSize();
+	size_t min;
+	uint16_t max;
+	if (!generate_palette_enabled || !write_palette) {
+		significant_count = write_palette ? palette_entries.size() : 0;
+		max = significant_count;
+		min = 256 - max;
+		if (min >= 16 && write_palette) {
+			significant_start = 16;
+		}
+		if (max > 256) max = 256;
+		if (bpp == 0) {
+			if (max <= 4) {
+				bpp = 2;
+			} else if (max <= 16) {
+				bpp = 4;
+			} else {
+				bpp = 8;
+			}
+		}
+		return;
+	}
+	max = (uint16_t)image->colorMapSize();
 	if (max > 256) max = 256;
 	if (bpp == 0) {
 		if (max <= 4) {
@@ -317,7 +339,7 @@ void BitmapX16::generate_palette() {
 			bpp = 8;
 		}
 	}
-	size_t min = 256 - (1 << bpp);
+	min = 256 - (1 << bpp);
 	if (min >= 16) {
 		significant_start = 16;
 	}
@@ -399,4 +421,51 @@ void BitmapX16::enable_compression(bool enabled) {
 }
 bool BitmapX16::compression_enabled() const {
 	return compress;
+}
+vector<PaletteEntry> BitmapX16::get_palette() const {
+	return palette_entries;
+}
+vector<PaletteEntry> BitmapX16::get_extra_entries() const {
+	return extra_palette_entries;
+}
+void BitmapX16::set_palette(vector<PaletteEntry> entries) {
+	palette_entries = entries;
+	palette_entries.shrink_to_fit();
+	extra_palette_entries.clear();
+	generate_palette_enabled = false;
+	image->quantizeColors(entries.size());
+	image->quantizeColorSpace(MagickCore::RGBColorspace);
+	image->colorMapSize(entries.size());
+	for (uint16_t i = 0; i < entries.size(); i++) {
+		image->colorMap(i, entries[i].toColor());
+	}
+	image->quantize();
+}
+void BitmapX16::enable_palette_generation() {
+	generate_palette_enabled = true;
+}
+bool BitmapX16::palette_generation_enabled() const {
+	return generate_palette_enabled && write_palette;
+}
+void BitmapX16::read_palette(const char *filename) {
+	size_t fsize = std::filesystem::file_size(filename);
+	if (fsize > 512 || (fsize % 2 != 0)) {
+		printf("Invalid palette file size! Palette files must be raw VERA palette data, sized as a multiple of 2, and up to 512 bytes(256 entries)");
+		throw std::exception();
+	}
+	vector<PaletteEntry> entries;
+	uint8_t entry[2];
+	std::ifstream file(filename, std::ifstream::binary|std::ifstream::in);
+	for (size_t i = 0; i < fsize; i += 2) {
+		file.read((char*)entry, 2);
+		entries.push_back(PaletteEntry(&entry[0]));
+		if (file.eof()) {
+			break;
+		}
+		if (file.bad()) {
+			printf("Error reading file!");
+			throw std::exception();
+		}
+	}
+	set_palette(entries);
 }

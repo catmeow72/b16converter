@@ -8,13 +8,15 @@
 #include <string>
 #include <exception>
 #include <lib.h>
+#include <stdlib.h>
+#include <filesystem>
 #include "bitmapx16.h"
 using std::vector;
 using std::map;
 using std::stoi;
 using namespace Magick;
 void usage() {
-	printf("Usage: veraconvert: [options]\n");
+	printf("Usage: bmxconvert: [options]\n");
 	printf("Options may be:\n");
 	printf("-in <input>\n");
 	printf("\tSets the input file.\n");
@@ -30,6 +32,8 @@ void usage() {
 	printf("\tEnables dithering of the output\n");
 	printf("-border <r> <g> <b>\n");
 	printf("\tIf possible, adds a border color with the specified RGB values which are in the range of 0-15.\n");
+	printf("-border-idx <palette index>\n");
+	printf("\tSets the border color by palette index\n");
 	printf("-reverse\n");
 	printf("\tConverts to PC formats. Incompatible with -dither, -type, and -significant - they will be ignored.\n");
 	printf("-debug <flags>\n");
@@ -38,6 +42,10 @@ void usage() {
 	printf("\tUse an ! before a flag to disable it.\n");
 	printf("-compress\n");
 	printf("\tCompresses the image with LZSA compression\n");
+	printf("-probe\n");
+	printf("\tDisplays information about a file, assuming BMX format.");
+	printf("-palette-file <file>\n");
+	printf("\tSets the palette file to use.\n");
 	printf("-help\n");
 	printf("\tDisplays this help message.\n");
 	exit(1);
@@ -48,11 +56,17 @@ int main(int argc, char **argv) {
 	uint8_t tbpp = 0;
 	uint16_t tcolorcount = 0;
 	const char *error_msg_part = "load the image";
+	const char *palette_file = NULL;
 	bool dither = false;
 	bool reverse = false;
 	bool compress = false;
 	uint8_t br, bg, bb;
 	bool border_set = false;
+	bool probe_only = false;
+	std::filesystem::path executable_path = std::filesystem::weakly_canonical(*argv).parent_path();
+#ifdef _WIN32
+	setenv("MAGICK_CODER_MODULE_PATH", executable_path.c_str(), 0);
+#endif
 	InitializeMagick(*argv);
 	argc--;
 	argv++;
@@ -188,8 +202,21 @@ int main(int argc, char **argv) {
 			compress = true;
 			argc--;
 			argv++;
+		} else if (!strcmp(argv[0], "-probe")) {
+			probe_only = true;
+			argc--;
+			argv++;
 		} else if (!strcmp(argv[0], "-help")) {
 			usage();
+		} else if (!strcmp(argv[0], "-palette-file")) {
+			argc--;
+			argv++;
+			if (!argc || argv[0][0] == '-') {
+				usage();
+			}
+			palette_file = argv[0];
+			argc--;
+			argv++;
 		} else if (!strcmp(argv[0], "-debug")) {
 			argc--;
 			argv++;
@@ -219,13 +246,21 @@ int main(int argc, char **argv) {
 			}
 			argc--;
 			argv++;
+		} else if (strlen(argv[0]) == 0) {
+			// Skip empty arguments.
+			argc--;
+			argv++;
 		} else {
-			printf("Error: Invalid command line argument.\n");
+			printf("Error: Invalid command line argument: '%s'\n", argv[0]);
 			usage();
 		}
 	}
-	if (input == NULL || output == NULL) {
-		printf("Input and output must be specified!\n");
+	if (input == NULL || ((output != NULL) == probe_only)) {
+		if (probe_only) {
+			printf("Input must be specified and output must not be!\n");
+		} else {
+			printf("Input and output must be specified!\n");
+		}
 		usage();
 	}
 	if (tbpp == 0) tbpp = 8;
@@ -247,6 +282,16 @@ int main(int argc, char **argv) {
 			error_msg_part = "resize the image";
 			bitmap.queue_resize(tw, th);
 		}
+		if (probe_only) {
+			error_msg_part = "obtain information";
+			tbpp = bitmap.get_bpp();
+			uint8_t border = bitmap.get_border_color();
+			uint16_t w, h;
+			w = bitmap.get_width();
+			h = bitmap.get_height();
+			uint8_t entry_count = bitmap.get_significant();
+			uint8_t entry_start = bitmap.get_significant_start();
+		}
 		if (reverse) {
 			error_msg_part = "write the file";
 			printf("Writing PC image file...\n");
@@ -254,6 +299,9 @@ int main(int argc, char **argv) {
 		} else {
 			error_msg_part = "apply the settings";
 			printf("Applying settings...\n");
+			if (palette_file != NULL) {
+				bitmap.read_palette(palette_file);
+			}
 			bitmap.enable_dithering(dither);
 			bitmap.set_bpp(tbpp);
 			bitmap.set_significant(tcolorcount);
@@ -272,6 +320,7 @@ int main(int argc, char **argv) {
 		}
 	} catch (std::exception &e) {
 		printf("Failed to %s!\n", error_msg_part);
+		return 1;
 	}
     return 0;
 }

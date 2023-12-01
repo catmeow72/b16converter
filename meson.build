@@ -8,6 +8,19 @@ deps = [
 	dependency('Magick++', version : '>=6.9.11'),
 	dependency('openmp')
 ]
+ncurses = dependency('curses', required: get_option('use_terminfo'))
+if ncurses.found()
+	deps += ncurses
+endif
+conf = configuration_data()
+check_headers = [
+	['curses.h', 'HAVE_CURSES_H']
+]
+foreach h : check_headers
+	if meson.get_compiler('cpp').has_header(h.get(0))
+		conf.set(h.get(1), 1)
+	endif
+endforeach
 srcs = [
 	'palette.cpp',
 	'bitmapx16.cpp',

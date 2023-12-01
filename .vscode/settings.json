@@ -1,5 +1,5 @@
 {
-	"C_Cpp.default.compileCommands": "builddir/compile_commands.json",
+	"C_Cpp.default.compileCommands": "/home/catmeow/Documents/MyProjects/X16/graphicsconverter/builddir/compile_commands.json",
 	"mesonbuild.configureOnOpen": true,
 	"files.associations": {
 		"cstdint": "cpp",

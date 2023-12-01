@@ -26,6 +26,10 @@ class BitmapX16 {
 	bool quantize_colors = false;
 	/// \brief Enables LZSA compression
 	bool compress = false;
+	/// \brief False to set the used palette to 0, and palette start also to 0.
+	bool write_palette = true;
+	/// \brief True if the palette should be generated, false if it has been set manually and shouldn't be regenerated.
+	bool generate_palette_enabled = true;
 	/// \brief Current width
 	size_t w = 0;
 	/// \brief Current height
@@ -80,6 +84,17 @@ class BitmapX16 {
 	uint8_t extra_to_real_palette(uint8_t idx);
 	float closeness_to_color(PaletteEntry a, PaletteEntry b);
 	public:
+	vector<PaletteEntry> get_palette() const;
+	vector<PaletteEntry> get_extra_entries() const;
+	void read_palette(const char *filename);
+	/// \brief Sets the palette to use
+	/// \param entries The entries to replace the existing palette
+	void set_palette(vector<PaletteEntry> entries);
+	/// \brief Enables palette generation after disabling it with set_palette.
+	void enable_palette_generation();
+	/// \brief Checks the status of palette generation
+	/// \returns true if palette generation is enabled, false otherwise.
+	bool palette_generation_enabled() const;
 	/// \brief Sets the border color extra palette entry.
 	/// \param idx The index of the palette entry, must be an index into the extra palette entry list.
 	void set_border_color(uint8_t idx);
@@ -92,13 +107,13 @@ class BitmapX16 {
 	uint8_t add_palette_entry(PaletteEntry entry);
 	/// \brief Sets the bits per pixel of the image
 	/// \param bpp The bits per pixel of the image, one of 1, 2, 4, or 8
-	void set_bpp(uint8_t bpp);
+	void set_bpp(uint8_t bpp = 8);
 	/// \brief Returns the bits per pixel of the image
 	/// \returns The bits per pixel of the image, one of 1, 2, 4, or 8
 	uint8_t get_bpp() const;
 	/// \brief Sets the maximum amount of colors to be used.
 	/// \param value The maximum amount of colors to use.
-	void set_significant(uint8_t value);
+	void set_significant(uint8_t value = 0);
 	/// \brief Returns the maximum amount of colors to be used
 	/// \returns The maximum amount of colors once written
 	uint8_t get_significant() const;
@@ -117,7 +132,7 @@ class BitmapX16 {
 	size_t get_height() const;
 	/// \brief Enables or disables dithering
 	/// \param enabled Pass true to enable, false to disable
-	void enable_dithering(bool enabled);
+	void enable_dithering(bool enabled = true);
 	/// \brief Returns the status of the dithering flag
 	/// \returns The value of the dithering flag
 	bool dithering_enabled() const;
