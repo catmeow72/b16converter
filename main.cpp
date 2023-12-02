@@ -10,6 +10,7 @@
 #include <lib.h>
 #include <stdlib.h>
 #include <filesystem>
+#include "win32compat.h"
 #include "bitmapx16.h"
 using std::vector;
 using std::map;
@@ -65,7 +66,7 @@ int main(int argc, char **argv) {
 	bool probe_only = false;
 	std::filesystem::path executable_path = std::filesystem::weakly_canonical(*argv).parent_path();
 #ifdef _WIN32
-	_setenv("MAGICK_CODER_MODULE_PATH", executable_path.c_str(), 0);
+	setenv("MAGICK_CODER_MODULE_PATH", executable_path.c_str(), 0);
 #endif
 	InitializeMagick(*argv);
 	argc--;
