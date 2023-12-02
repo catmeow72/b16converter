@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
 	uint8_t br, bg, bb;
 	bool border_set = false;
 	bool probe_only = false;
-	std::filesystem::path executable_path = std::filesystem::weakly_canonical(*argv).parent_path();
+	std::string executable_path = std::filesystem::weakly_canonical(*argv).parent_path().generic_string();
 #ifdef _WIN32
 	setenv("MAGICK_CODER_MODULE_PATH", executable_path.c_str(), 0);
 #endif

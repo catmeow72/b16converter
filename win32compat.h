@@ -2,8 +2,9 @@
 
 #ifdef _WIN32
 #include <stdlib.h>
+#include <string.h>
 inline void setenv(const char *variable, const char *value, char replace) {
-	if (replace || getenv(variable) == NULL || getenv(variable) == "") {
+	if (replace || getenv(variable) == NULL || !strcmp(getenv(variable), "")) {
 		if (value == NULL) {
 			_putenv_s(variable, "");
 		} else {
