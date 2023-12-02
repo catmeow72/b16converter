@@ -2,7 +2,7 @@
 
 #ifdef _WIN32
 #include <stdlib.h>
-inline void setenv(char const *variable, char const *value, char replace) {
+inline void setenv(const char *variable, const char *value, char replace) {
 	if (replace || getenv(variable) == NULL || getenv(variable) == "") {
 		if (value == NULL) {
 			_putenv_s(variable, "");

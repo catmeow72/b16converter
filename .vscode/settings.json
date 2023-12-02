@@ -12,6 +12,23 @@
 		"semaphore": "cpp",
 		"valarray": "cpp",
 		"ratio": "cpp",
-		"algorithm": "cpp"
+		"algorithm": "cpp",
+		"charconv": "cpp",
+		"optional": "cpp",
+		"format": "cpp",
+		"system_error": "cpp",
+		"array": "cpp",
+		"functional": "cpp",
+		"tuple": "cpp",
+		"type_traits": "cpp",
+		"utility": "cpp",
+		"__bit_reference": "cpp",
+		"__node_handle": "cpp",
+		"atomic": "cpp",
+		"bitset": "cpp",
+		"deque": "cpp",
+		"__memory": "cpp",
+		"locale": "cpp",
+		"vector": "cpp"
 	}
 }
