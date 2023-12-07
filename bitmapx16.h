@@ -2,12 +2,22 @@
 #include <vector>
 #include <Magick++.h>
 #include "palette.h"
+#include <stdint.h>
 using namespace Magick;
 using std::vector;
-enum BitmapX16DebugFlags : int {
+enum BitmapX16DebugFlags : uint16_t {
 	DebugNone = 0,
 	DebugShowPalette = (1 << 0),
-	DebugShowCloseness = (1 << 1)
+	DebugShowCloseness = (1 << 1),
+	DebugShowSignificant = (1 << 2),
+
+};
+enum BitmapX16Operation : uint16_t {
+	None = 0,
+	Resize = (1 << 0),
+	Quantize = (1 << 1),
+	PreparePalette = (1 << 2),
+	GeneratePalette = (1 << 15),
 };
 class BitmapX16 {
 	/// \brief Bits per pixel of the image
@@ -26,10 +36,12 @@ class BitmapX16 {
 	bool quantize_colors = false;
 	/// \brief Enables LZSA compression
 	bool compress = false;
-	/// \brief False to set the used palette to 0, and palette start also to 0.
-	bool write_palette = true;
+	/// \brief Whether or not an operation is pending.
+	bool operations_pending = false;
 	/// \brief True if the palette should be generated, false if it has been set manually and shouldn't be regenerated.
 	bool generate_palette_enabled = true;
+	/// \brief The intended start of the palette.
+	uint8_t target_palette_start = 16;
 	/// \brief Current width
 	size_t w = 0;
 	/// \brief Current height
@@ -52,10 +64,6 @@ class BitmapX16 {
 	uint8_t image_palette_count = 0;
 	/// \brief Generates a palette from the current image
 	void generate_palette();
-	/// \brief Actually resizes the image. User code should call queue_resize then apply
-	/// \param w The width to resize to
-	/// \param h The height to resize to
-	void resize(size_t w, size_t h); 
 	/// \brief Gets the pixel index within this image based on X and Y values, as well as the width of the image
 	/// \param x The X value of the pixel
 	/// \param y The Y value of the pixel
@@ -83,6 +91,7 @@ class BitmapX16 {
 	uint8_t color_to_palette_entry(const ColorRGB &rgb);
 	uint8_t extra_to_real_palette(uint8_t idx);
 	float closeness_to_color(PaletteEntry a, PaletteEntry b);
+	void prepare_palette();
 	public:
 	vector<PaletteEntry> get_palette() const;
 	vector<PaletteEntry> get_extra_entries() const;
@@ -90,6 +99,11 @@ class BitmapX16 {
 	/// \brief Sets the palette to use
 	/// \param entries The entries to replace the existing palette
 	void set_palette(vector<PaletteEntry> entries);
+	/// \brief Actually resizes the image. User code should call queue_resize then apply
+	/// \param w The width to resize to
+	/// \param h The height to resize to
+	void resize(size_t w, size_t h); 
+	void apply_operations(BitmapX16Operation operations);
 	/// \brief Enables palette generation after disabling it with set_palette.
 	void enable_palette_generation();
 	/// \brief Checks the status of palette generation

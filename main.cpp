@@ -266,6 +266,12 @@ int main(int argc, char **argv) {
 	}
 	if (tbpp == 0) tbpp = 8;
 	if (tcolorcount == 0) tcolorcount = (1 << tbpp);
+	if (probe_only) {
+		tw = 0;
+		th = 0;
+		tbpp = 0;
+		tcolorcount = 0;
+	}
 	try {
 		BitmapX16 bitmap;
 		bitmap.enable_compression(compress);
@@ -276,6 +282,11 @@ int main(int argc, char **argv) {
 		} else {
 			printf("Loading PC image file '%s' to be converted to the X16 bitmap format...\n", input);
 			printf("Using at most %u colors (excluding border color) at %u bpp\n", tcolorcount, tbpp);
+			if (palette_file != NULL) {
+				printf("Using palette file '%s'\n", palette_file);
+			} else {
+				printf("Using generated palette.\n");
+			}
 			if (bitmap.compression_enabled()) printf("Compression enabled\n");
 			bitmap.load_pc(input);
 		}
@@ -292,6 +303,21 @@ int main(int argc, char **argv) {
 			h = bitmap.get_height();
 			uint8_t entry_count = bitmap.get_significant();
 			uint8_t entry_start = bitmap.get_significant_start();
+			printf("Image BPP: %u\n", tbpp);
+			printf("Image size: (%u, %u)\n", w, h);
+			printf("Palette starts at %u, has %u entries, and ends at %u\n", entry_start, entry_count == 0 ? 256 : entry_count, entry_start + entry_count);
+			printf("Palette:\n");
+			vector<PaletteEntry> entries = bitmap.get_palette();
+			for (size_t i = 0; i < entries.size(); i+=8) {
+				for (size_t j = 0; j < 8; j++) {
+					if (i + j > entries.size()) {
+						break;
+					}
+					printf("[%u] = %s, ", i + j, entries[i + j].to_string().c_str());
+				}
+				printf("\n");
+			}
+			return 0;
 		}
 		if (reverse) {
 			error_msg_part = "write the file";

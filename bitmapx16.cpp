@@ -17,6 +17,7 @@ float BitmapX16::closeness_to_color(PaletteEntry a, PaletteEntry b) {
 void BitmapX16::set_bpp(uint8_t bpp) {
 	this->bpp = bpp;
 	quantize_colors = true;
+	operations_pending = true;
 }
 uint8_t BitmapX16::get_bpp() const {
 	return bpp;
@@ -27,6 +28,7 @@ void BitmapX16::set_significant(uint8_t value) {
 	}
 	significant_count = value;
 	quantize_colors = true;
+	operations_pending = true;
 }
 uint8_t BitmapX16::get_significant() const {
 	return significant_count;
@@ -39,6 +41,7 @@ size_t BitmapX16::get_height() const {
 }
 void BitmapX16::enable_dithering(bool enabled) {
 	dither = enabled;
+	operations_pending = true;
 }
 bool BitmapX16::dithering_enabled() const {
 	return dither;
@@ -50,6 +53,26 @@ void BitmapX16::resize(size_t w, size_t h) {
 void BitmapX16::queue_resize(size_t w, size_t h) {
 	tw = w;
 	th = h;
+	operations_pending = true;
+}
+void BitmapX16::apply_operations(BitmapX16Operation operations) {
+	if (operations & BitmapX16Operation::Resize) {
+		if (tw != 0 && th != 0) {
+			resize(tw, th);
+			tw = 0;
+			th = 0;
+		}
+	}
+	if (operations & BitmapX16Operation::Quantize) {
+		if (significant_count != 0) {
+			image->quantizeColors(significant_count);
+			image->quantizeDither(dither);
+			image->quantize();
+		}
+	}
+	if (operations & BitmapX16Operation::PreparePalette) {
+
+	}
 }
 void BitmapX16::apply() {
 	if (tw != 0 && th != 0) {
@@ -70,6 +93,7 @@ void BitmapX16::apply() {
 	}
 	image->quantize();
 	generate_palette();
+	operations_pending = false;
 }
 uint8_t BitmapX16::extra_to_real_palette(uint8_t idx) {
 	return image_palette_count + idx;
@@ -83,7 +107,11 @@ void BitmapX16::write_x16(const char *filename) {
 	size_t outpixelsize;
 	size_t pixelCount;
 	pixels_per_byte = (8/bpp);
-	apply();
+	if (operations_pending) {
+		apply();
+	} else {
+		generate_palette();
+	}
 	w = image->columns();
 	h = image->rows();
 	printf("Image size: (%lu, %lu)\n", w, h);
@@ -306,48 +334,47 @@ uint8_t BitmapX16::get_orable_pixel(uint8_t pixelinbyte, uint8_t color) {
 BitmapX16::BitmapX16() {
 	palette_entries = vector<PaletteEntry>();
 }
-void BitmapX16::generate_palette() {
-	size_t min;
-	uint16_t max;
-	if (!generate_palette_enabled || !write_palette) {
-		significant_count = write_palette ? palette_entries.size() : 0;
-		max = significant_count;
-		min = 256 - max;
-		if (min >= 16 && write_palette) {
-			significant_start = 16;
-		}
-		if (max > 256) max = 256;
-		if (bpp == 0) {
-			if (max <= 4) {
-				bpp = 2;
-			} else if (max <= 16) {
-				bpp = 4;
-			} else {
-				bpp = 8;
-			}
-		}
-		return;
+void BitmapX16::prepare_palette() {
+	size_t max_start;
+	uint16_t max_colors;
+	if (!generate_palette_enabled) {
+		max_colors = palette_entries.size();
+	} else {
+		max_colors = image->colorMapSize();
 	}
-	max = (uint16_t)image->colorMapSize();
-	if (max > 256) max = 256;
+	max_start = 256 - max_colors;
+	if (max_start >= target_palette_start) {
+		significant_start = target_palette_start;
+	} else {
+		significant_start = max_start;
+	}
+	if (max_colors > 256) max_colors = 256;
 	if (bpp == 0) {
-		if (max <= 4) {
+		if (max_colors <= 4) {
 			bpp = 2;
-		} else if (max <= 16) {
+		} else if (max_colors <= 16) {
 			bpp = 4;
 		} else {
 			bpp = 8;
 		}
 	}
-	min = 256 - (1 << bpp);
-	if (min >= 16) {
-		significant_start = 16;
+	if (generate_palette_enabled) {
+		if (significant_count == 0) {
+			significant_count = max_colors;
+		}
 	}
-	if (significant_count == 0) {
-		significant_count = max;
+	image_palette_count = max_colors;
+	if (debug & DebugShowSignificant) {
+		uint16_t significant_end = significant_start + significant_count;
+		uint16_t image_end = significant_start + image_palette_count;
+		printf("Significant: %u-%u, %u entries\n", significant_start, significant_end, significant_count);
+		printf("Image: %u-%u, %u entries\n", significant_start, image_end, image_palette_count);
 	}
-	bitmask = (1 << bpp) - 1;
-	image_palette_count = max;
+}
+void BitmapX16::generate_palette() {
+	uint16_t max_colors;
+	prepare_palette();
+	max_colors = image_palette_count;
 	palette_entries.clear();
 	for (uint16_t i = 0; i < image_palette_count; i++) {
 		ColorRGB map_color = image->colorMap(i);
@@ -368,6 +395,7 @@ void BitmapX16::generate_palette() {
 }
 uint8_t BitmapX16::add_palette_entry(PaletteEntry entry) {
 	extra_palette_entries.push_back(entry);
+	operations_pending = true;
 	return (uint8_t)(extra_palette_entries.size() - 1);
 }
 uint8_t BitmapX16::color_to_palette_entry(const ColorRGB &rgb) {
@@ -377,7 +405,7 @@ uint8_t BitmapX16::color_to_palette_entry(const ColorRGB &rgb) {
 	if (debug & DebugShowCloseness) {
 		printf("Closest color for %s: ", color.to_string().c_str());
 	}
-	for (size_t i = 0; i < image_palette_count; i++) {
+	for (size_t i = 0; i < image_palette_count && i < (1 << bpp); i++) {
 		float possibility_closeness = closeness_to_color(palette_entries[i], color);
 		//printf("Closeness: %f", possibility_closeness);
 		if (possibility_closeness < closeness) {
@@ -433,19 +461,14 @@ void BitmapX16::set_palette(vector<PaletteEntry> entries) {
 	palette_entries.shrink_to_fit();
 	extra_palette_entries.clear();
 	generate_palette_enabled = false;
-	image->quantizeColors(entries.size());
-	image->quantizeColorSpace(MagickCore::RGBColorspace);
-	image->colorMapSize(entries.size());
-	for (uint16_t i = 0; i < entries.size(); i++) {
-		image->colorMap(i, entries[i].toColor());
-	}
-	image->quantize();
+	operations_pending = true;
 }
 void BitmapX16::enable_palette_generation() {
 	generate_palette_enabled = true;
+	operations_pending = true;
 }
 bool BitmapX16::palette_generation_enabled() const {
-	return generate_palette_enabled && write_palette;
+	return generate_palette_enabled;
 }
 void BitmapX16::read_palette(const char *filename) {
 	size_t fsize = std::filesystem::file_size(filename);
