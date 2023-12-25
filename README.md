@@ -1,3 +1,5 @@
+# WARNING: This is no longer the home of this repo.
+Go [here](https://complecwaft.com/catmeow/bmxconverter) for the new location.
 # B16Converter
 A converter to/from the B16/BMX bitmap format being developed for the Commander X16
 
